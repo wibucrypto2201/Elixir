@@ -73,7 +73,7 @@ except Exception as e:
 END
 }
 
-# Node installation function for multiple wallets (265 nodes)
+# Node installation function for multiple wallets (200 nodes)
 function install_multiple_nodes() {
     check_and_install_python
     check_and_install_docker
@@ -92,14 +92,14 @@ function install_multiple_nodes() {
     mapfile -t addresses < address.txt
     mapfile -t private_keys < private_keys.txt
 
-    # Check if there are at least 265 addresses and private keys
-    if [ ${#addresses[@]} -lt 265 ] || [ ${#private_keys[@]} -lt 265 ]; then
-        echo "There must be at least 265 entries in both address.txt and private_keys.txt."
+    # Check if there are at least 200 addresses and private keys
+    if [ ${#addresses[@]} -lt 200 ] || [ ${#private_keys[@]} -lt 200 ]; then
+        echo "There must be at least 200 entries in both address.txt and private_keys.txt."
         exit 1
     fi
 
-    # Loop through and install 265 nodes
-    for i in {1..265}; do
+    # Loop through and install 200 nodes
+    for i in {1..200}; do
         echo "Setting up validator node $i..."
 
         # Fetch a random username for each validator
@@ -153,12 +153,12 @@ function delete_docker_container() {
     echo "Elixir Docker container deleted."
 }
 
-# Option 5: Update all 265 validator nodes
+# Option 5: Update all 200 validator nodes
 function update_all_nodes() {
-    echo "Updating all 265 validator nodes..."
+    echo "Updating all 200 validator nodes..."
     
-    # Loop through all 265 nodes and update them
-    for i in {1..265}; do
+    # Loop through all 200 nodes and update them
+    for i in {1..200}; do
         echo "Updating validator node $i..."
 
         # Stop and remove the existing container
@@ -186,8 +186,8 @@ function main_menu() {
     echo "1. Install Elixir V3 Node"
     echo "2. View Docker Logs"
     echo "3. Delete Elixir Docker Container"
-    echo "4. Install 265 Elixir V3 Nodes from private_keys.txt"
-    echo "5. Update all 265 validator nodes"
+    echo "4. Install 200 Elixir V3 Nodes from private_keys.txt"
+    echo "5. Update all 200 validator nodes"
     read -p "Please enter an option (1-5): " OPTION
 
     case $OPTION in
