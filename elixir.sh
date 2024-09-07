@@ -10,6 +10,9 @@ fi
 # Script save path
 SCRIPT_PATH="$HOME/ElixirV3.sh"
 
+# Variable to track how many validator nodes were created
+NUM_VALIDATOR_NODES=0
+
 # Check and install Python 3
 function check_and_install_python() {
     if ! command -v python3 &> /dev/null; then
@@ -21,7 +24,6 @@ function check_and_install_python() {
         echo "Python 3 is already installed."
     fi
 
-    # Check and install pip for Python 3
     if ! command -v pip3 &> /dev/null; then
         echo "pip for Python 3 not detected, installing..."
         sudo apt-get install -y python3-pip
@@ -30,7 +32,6 @@ function check_and_install_python() {
         echo "pip is already installed."
     fi
 
-    # Install requests library using pip
     if ! python3 -c "import requests" &> /dev/null; then
         echo "Python 'requests' module not detected, installing..."
         pip3 install requests
@@ -73,7 +74,7 @@ except Exception as e:
 END
 }
 
-# Node installation function for multiple wallets (200 nodes)
+# Node installation function for multiple wallets
 function install_multiple_nodes() {
     check_and_install_python
     check_and_install_docker
@@ -92,14 +93,17 @@ function install_multiple_nodes() {
     mapfile -t addresses < address.txt
     mapfile -t private_keys < private_keys.txt
 
-    # Check if there are at least 200 addresses and private keys
-    if [ ${#addresses[@]} -lt 200 ] || [ ${#private_keys[@]} -lt 200 ]; then
-        echo "There must be at least 200 entries in both address.txt and private_keys.txt."
+    # Ask the user how many validator nodes to create
+    read -p "How many validator nodes would you like to create? " num_nodes
+
+    # Check if there are enough addresses and private keys
+    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ]; then
+        echo "There must be at least $num_nodes entries in both address.txt and private_keys.txt."
         exit 1
     fi
 
-    # Loop through and install 200 nodes
-    for i in {1..200}; do
+    # Loop through and install the requested number of nodes
+    for i in $(seq 1 $num_nodes); do
         echo "Setting up validator node $i..."
 
         # Fetch a random username for each validator
@@ -137,6 +141,9 @@ EOF
         
         echo "Validator node ${validator_name} started with container elixir_${i}."
     done
+
+    # Update the global variable with the number of validator nodes created
+    NUM_VALIDATOR_NODES=$num_nodes
 }
 
 # View Docker logs function
@@ -153,12 +160,17 @@ function delete_docker_container() {
     echo "Elixir Docker container deleted."
 }
 
-# Option 5: Update all 200 validator nodes
+# Option 5: Update all created validator nodes
 function update_all_nodes() {
-    echo "Updating all 200 validator nodes..."
+    if [ $NUM_VALIDATOR_NODES -eq 0 ]; then
+        echo "No validator nodes have been created yet."
+        exit 1
+    fi
+
+    echo "Updating all $NUM_VALIDATOR_NODES validator nodes..."
     
-    # Loop through all 200 nodes and update them
-    for i in {1..200}; do
+    # Loop through all created nodes and update them
+    for i in $(seq 1 $NUM_VALIDATOR_NODES); do
         echo "Updating validator node $i..."
 
         # Stop and remove the existing container
@@ -186,8 +198,8 @@ function main_menu() {
     echo "1. Install Elixir V3 Node"
     echo "2. View Docker Logs"
     echo "3. Delete Elixir Docker Container"
-    echo "4. Install 200 Elixir V3 Nodes from private_keys.txt"
-    echo "5. Update all 200 validator nodes"
+    echo "4. Install Elixir V3 Nodes from private_keys.txt"
+    echo "5. Update all created validator nodes"
     read -p "Please enter an option (1-5): " OPTION
 
     case $OPTION in
