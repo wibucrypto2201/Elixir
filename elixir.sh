@@ -57,23 +57,6 @@ function check_and_install_docker() {
     fi
 }
 
-# Fetch a random username from randomuser.me API using Python
-function fetch_random_username() {
-    python3 - <<END
-import requests
-import sys
-try:
-    response = requests.get("https://randomuser.me/api/0.8/?results=1")
-    if response.status_code == 200:
-        username = response.json()["results"][0]["user"]["username"]
-        print(username)
-    else:
-        sys.exit(1)
-except Exception as e:
-    sys.exit(1)
-END
-}
-
 # Node installation function for multiple wallets
 function install_multiple_nodes() {
     check_and_install_python
@@ -88,17 +71,22 @@ function install_multiple_nodes() {
         echo "File address.txt not found. Please make sure the file exists."
         exit 1
     fi
+    if [ ! -f "username.txt" ]; then
+        echo "File username.txt not found. Please make sure the file exists."
+        exit 1
+    fi
 
-    # Read addresses and private keys from files
+    # Read addresses, private keys, and usernames from files
     mapfile -t addresses < address.txt
     mapfile -t private_keys < private_keys.txt
+    mapfile -t usernames < username.txt
 
     # Ask the user how many validator nodes to create
     read -p "How many validator nodes would you like to create? " num_nodes
 
-    # Check if there are enough addresses and private keys
-    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ]; then
-        echo "There must be at least $num_nodes entries in both address.txt and private_keys.txt."
+    # Check if there are enough addresses, private keys, and usernames
+    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ]; then
+        echo "There must be at least $num_nodes entries in address.txt, private_keys.txt, and username.txt."
         exit 1
     fi
 
@@ -106,12 +94,8 @@ function install_multiple_nodes() {
     for i in $(seq 1 $num_nodes); do
         echo "Setting up validator node $i..."
 
-        # Fetch a random username for each validator
-        validator_name=$(fetch_random_username)
-        if [ -z "$validator_name" ]; then
-            echo "Failed to fetch random username. Exiting."
-            exit 1
-        fi
+        # Get username for each validator from the username.txt file
+        validator_name=${usernames[$((i-1))]}
 
         # Get safe public address and private key
         safe_public_address=${addresses[$((i-1))]}
