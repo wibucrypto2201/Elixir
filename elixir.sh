@@ -146,7 +146,7 @@ function delete_docker_container() {
     done
 }
 
-# Option 5: Update all created validator nodes
+# Update all created validator nodes
 function update_all_nodes() {
     if [ $NUM_VALIDATOR_NODES -eq 0 ]; then
         echo "No validator nodes have been created yet."
@@ -174,6 +174,11 @@ function update_all_nodes() {
         
         echo "Validator node $i has been updated and restarted."
     done
+}
+
+# Dummy function for install_node
+function install_node() {
+    echo "Installing Elixir V3 Node (placeholder function)."
 }
 
 # Main menu
