@@ -143,6 +143,7 @@ function delete_docker_container() {
         docker stop elixir_${i}
         docker rm elixir_${i}
         echo "Elixir Docker container deleted."
+    done
 }
 
 # Option 5: Update all created validator nodes
