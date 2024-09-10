@@ -137,14 +137,24 @@ function check_docker_logs() {
 }
 
 # Delete Docker container function
+# Delete Docker container function
 function delete_docker_container() {
+    if [ $NUM_VALIDATOR_NODES -eq 0 ]; then
+        echo "No validator nodes have been created yet."
+        exit 1
+    fi
+
     for i in $(seq 1 $NUM_VALIDATOR_NODES); do
-        echo "Deleting Elixir Docker container..."
+        echo "Deleting Elixir Docker container elixir_${i}..."
+        
+        # Stop and remove the container
         docker stop elixir_${i}
         docker rm elixir_${i}
-        echo "Elixir Docker container deleted."
+        
+        echo "Elixir Docker container elixir_${i} deleted."
     done
 }
+
 
 # Update all created validator nodes
 function update_all_nodes() {
