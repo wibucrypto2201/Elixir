@@ -148,7 +148,7 @@ function delete_docker_container() {
         echo "Deleting Elixir Docker container elixir_${i}..."
         
         # Stop and remove the container
-        docker stop elixir_${i}
+        docker kill elixir_${i}
         docker rm elixir_${i}
         
         echo "Elixir Docker container elixir_${i} deleted."
