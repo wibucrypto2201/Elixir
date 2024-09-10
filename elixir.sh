@@ -139,8 +139,8 @@ function check_docker_logs() {
 # Delete Docker container function
 function delete_docker_container() {
     echo "Deleting Elixir Docker container..."
-    docker stop elixir
-    docker rm elixir
+    docker kill elixir_${i}
+    docker rm elixir_${i}
     echo "Elixir Docker container deleted."
 }
 
