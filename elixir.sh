@@ -146,8 +146,8 @@ function delete_docker_container() {
 
 # Option 5: Update all created validator nodes
 function update_all_nodes() {
-    # Count the running validator nodes by checking the container names that match "elixir_"
-    NUM_VALIDATOR_NODES=$(docker ps --format '{{.Names}}' | grep -c '^elixir_')
+    # Count the number of .env files that match "validator_*.env"
+    NUM_VALIDATOR_NODES=$(ls validator_*.env 2>/dev/null | wc -l)
 
     if [ $NUM_VALIDATOR_NODES -eq 0 ]; then
         echo "No validator nodes have been created yet."
