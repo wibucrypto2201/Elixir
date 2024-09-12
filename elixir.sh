@@ -52,6 +52,9 @@ function check_and_install_docker() {
         sudo apt-get update
         sudo apt-get install -y docker-ce
         echo "Docker installed."
+        
+        # Reload shell environment to update PATH
+        source /etc/profile
     else
         echo "Docker is already installed."
     fi
