@@ -139,12 +139,18 @@ function check_docker_logs() {
     docker logs -f elixir
 }
 
-# Delete Docker container function
+# Delete all Elixir Docker containers function
 function delete_docker_container() {
-    echo "Deleting Elixir Docker container..."
-    docker stop elixir
-    docker rm elixir
-    echo "Elixir Docker container deleted."
+    echo "Deleting all Elixir Docker containers..."
+
+    # Find all containers with names starting with elixir_
+    for container_id in $(docker ps -a -q --filter "name=elixir_"); do
+        echo "Stopping and removing container $container_id..."
+        docker stop "$container_id"
+        docker rm "$container_id"
+    done
+
+    echo "All Elixir Docker containers deleted."
 }
 
 # Option 5: Update all created validator nodes
