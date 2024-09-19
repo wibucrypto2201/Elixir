@@ -73,13 +73,13 @@ function install_multiple_nodes() {
         exit 1
     fi
 
-    # Loop through and create the specified number of nodes
+    # Prepare to run Docker containers
     for i in $(seq 1 $num_nodes); do
         validator_name=${usernames[$((i-1))]}
         safe_public_address=${addresses[$((i-1))]}
         private_key=${private_keys[$((i-1))]}
 
-        # Create .env file for each validator
+        # Create an .env file for each validator node
         cat <<EOF > validator_${i}.env
 ENV=testnet-3
 STRATEGY_EXECUTOR_DISPLAY_NAME=${validator_name}
@@ -87,18 +87,16 @@ STRATEGY_EXECUTOR_BENEFICIARY=${safe_public_address}
 SIGNER_PRIVATE_KEY=${private_key}
 EOF
 
-        # Pull the Docker image only once (first iteration)
-        if [ $i -eq 1 ]; then
-            docker pull elixirprotocol/validator:v3 --platform linux/amd64
-        fi
-
-        # Assign each container a unique port by incrementing the base port 17690
+        # Create a unique port for each Docker container
         assigned_port=$((17690 + i))
 
-        # Run the Docker container for each node with a unique port
+        # Run the Docker container in the background
         docker run -d --env-file validator_${i}.env --name elixir_${i} --platform linux/amd64 -p ${assigned_port}:17690 elixirprotocol/validator:v3
+
         echo "Validator node ${validator_name} started on port ${assigned_port}."
     done
+
+    echo "Successfully launched $num_nodes validator nodes."
 }
 
 # Delete all Elixir Docker containers, their .env files, and images
@@ -153,6 +151,7 @@ function main_menu() {
         esac
     done
 }
+
 
 # Run the main menu
 main_menu
