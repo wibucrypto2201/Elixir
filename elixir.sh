@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Check if the script is run as root user
+# Ensure script is run as root
 if [ "$(id -u)" != "0" ]; then
     echo "This script needs to be run with root user privileges."
     echo "Please try using 'sudo -i' to switch to the root user, and then run this script again."
@@ -13,7 +13,7 @@ SCRIPT_PATH="$HOME/ElixirV3.sh"
 # Variable to track how many validator nodes were created
 NUM_VALIDATOR_NODES=0
 
-# Check and install Python 3
+# Check and install Python 3 and dependencies
 function check_and_install_python() {
     if ! command -v python3 &> /dev/null; then
         echo "Python 3 not detected, installing..."
@@ -52,161 +52,145 @@ function check_and_install_docker() {
         sudo apt-get update
         sudo apt-get install -y docker-ce
         echo "Docker installed."
-        
-        # Reload shell environment to update PATH
-        source /etc/profile
     else
         echo "Docker is already installed."
     fi
 }
 
-# Node installation function for multiple wallets
+# Install multiple validator nodes
 function install_multiple_nodes() {
     check_and_install_python
     check_and_install_docker
 
-    # Ensure the required files exist
-    if [ ! -f "private_keys.txt" ]; then
-        echo "File private_keys.txt not found. Please make sure the file exists."
-        exit 1
-    fi
-    if [ ! -f "address.txt" ]; then
-        echo "File address.txt not found. Please make sure the file exists."
-        exit 1
-    fi
-    if [ ! -f "username.txt" ]; then
-        echo "File username.txt not found. Please make sure the file exists."
+    if [ ! -f "private_keys.txt" ] || [ ! -f "address.txt" ] || [ ! -f "username.txt" ]; then
+        echo "Required files (private_keys.txt, address.txt, username.txt) not found."
         exit 1
     fi
 
-    # Read addresses, private keys, and usernames from files
     mapfile -t addresses < address.txt
     mapfile -t private_keys < private_keys.txt
     mapfile -t usernames < username.txt
 
-    # Ask the user how many validator nodes to create
     read -p "How many validator nodes would you like to create? " num_nodes
 
-    # Check if there are enough addresses, private keys, and usernames
     if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ]; then
-        echo "There must be at least $num_nodes entries in address.txt, private_keys.txt, and username.txt."
+        echo "Insufficient entries in input files for $num_nodes nodes."
         exit 1
     fi
 
-    # Loop through and install the requested number of nodes
     for i in $(seq 1 $num_nodes); do
-        echo "Setting up validator node $i..."
-
-        # Get username for each validator from the username.txt file
         validator_name=${usernames[$((i-1))]}
-
-        # Get safe public address and private key
         safe_public_address=${addresses[$((i-1))]}
         private_key=${private_keys[$((i-1))]}
 
-        # Create a unique environment file for each validator
         cat <<EOF > validator_${i}.env
 ENV=testnet-3
-
 STRATEGY_EXECUTOR_DISPLAY_NAME=${validator_name}
 STRATEGY_EXECUTOR_BENEFICIARY=${safe_public_address}
 SIGNER_PRIVATE_KEY=${private_key}
 EOF
 
-        echo "Environment variables set and saved to validator_${i}.env file."
-
-        # Pull Docker image for the first run
         if [ $i -eq 1 ]; then
             docker pull elixirprotocol/validator:v3
         fi
 
-        # Run Docker container for each validator
-        docker run -it -d \
-          --env-file validator_${i}.env \
-          --name elixir_${i} \
-          elixirprotocol/validator:v3
-        
-        echo "Validator node ${validator_name} started with container elixir_${i}."
+        docker run -it -d --env-file validator_${i}.env --name elixir_${i} elixirprotocol/validator:v3
+        echo "Validator node ${validator_name} started."
     done
 
-    # Update the global variable with the number of validator nodes created
     NUM_VALIDATOR_NODES=$num_nodes
 }
 
-# View Docker logs function
-function check_docker_logs() {
-    echo "Viewing Elixir Docker container logs..."
-    docker logs -f elixir
-}
-
-# Delete all Elixir Docker containers function
+# Delete all Elixir Docker containers and their .env files
 function delete_docker_container() {
-    echo "Deleting all Elixir Docker containers..."
-
-    # Find all containers with names starting with elixir_
-    for container_id in $(docker ps -a -q --filter "name=elixir_"); do
-        echo "Stopping and removing container $container_id..."
-        docker stop "$container_id"
-        docker rm "$container_id"
-    done
-
-    echo "All Elixir Docker containers deleted."
-}
-
-# Option 5: Update all created validator nodes
-function update_all_nodes() {
-    # Count the number of .env files that match "validator_*.env"
     NUM_VALIDATOR_NODES=$(ls validator_*.env 2>/dev/null | wc -l)
 
     if [ $NUM_VALIDATOR_NODES -eq 0 ]; then
-        echo "No validator nodes have been created yet."
+        echo "No validator nodes to delete."
         exit 1
     fi
 
-    echo "Updating all $NUM_VALIDATOR_NODES validator nodes..."
-    
-    # Loop through all created nodes and update them
     for i in $(seq 1 $NUM_VALIDATOR_NODES); do
-        echo "Updating validator node $i..."
+        container_name="elixir_${i}"
 
-        # Stop and remove the existing container
+        # Check if the container exists
+        container_id=$(docker ps -a -q --filter "name=${container_name}")
+        if [ -z "$container_id" ]; then
+            echo "No container found for ${container_name}, skipping."
+            continue
+        fi
+
+        echo "Stopping container ${container_name}..."
+        docker stop "$container_id"
+        docker rm "$container_id"
+
+        env_file="validator_${i}.env"
+        if [ -f "$env_file" ]; then
+            echo "Removing environment file ${env_file}..."
+            rm "$env_file"
+        fi
+    done
+    echo "Cleanup complete."
+}
+
+# Update all created validator nodes
+function update_all_nodes() {
+    NUM_VALIDATOR_NODES=$(ls validator_*.env 2>/dev/null | wc -l)
+
+    if [ $NUM_VALIDATOR_NODES -eq 0 ]; then
+        echo "No validator nodes to update."
+        exit 1
+    fi
+
+    for i in $(seq 1 $NUM_VALIDATOR_NODES); do
         docker kill elixir_${i}
         docker rm elixir_${i}
-
-        # Pull the latest image
         docker pull elixirprotocol/validator:v3
-
-        # Run the updated container with the respective environment file
-        docker run -it -d \
-          --env-file validator_${i}.env \
-          --name elixir_${i} \
-          elixirprotocol/validator:v3
-        
-        echo "Validator node $i has been updated and restarted."
+        docker run -it -d --env-file validator_${i}.env --name elixir_${i} elixirprotocol/validator:v3
+        echo "Validator node $i updated and restarted."
     done
 }
 
-# Main menu
-function main_menu() {
-    clear
-    echo "=====================Elixir V3 Node========================="
-    echo "Please choose an operation to perform:"
-    echo "1. Install Elixir V3 Node"
-    echo "2. View Docker Logs"
-    echo "3. Delete Elixir Docker Container"
-    echo "4. Install Elixir V3 Nodes from private_keys.txt"
-    echo "5. Update all created validator nodes"
-    read -p "Please enter an option (1-5): " OPTION
+# View Docker logs for a specific container
+function check_docker_logs() {
+    read -p "Enter the container number (e.g., 1, 2): " container_number
+    container_name="elixir_${container_number}"
 
-    case $OPTION in
-    1) install_node ;;
-    2) check_docker_logs ;;
-    3) delete_docker_container ;;
-    4) install_multiple_nodes ;;
-    5) update_all_nodes ;;
-    *) echo "Invalid option." ;;
-    esac
+    # Check if the container exists
+    if docker ps -a --filter "name=${container_name}" --format '{{.Names}}' | grep -q "${container_name}"; then
+        echo "Fetching logs for container ${container_name}..."
+        docker logs "${container_name}"
+    else
+        echo "No container found with name ${container_name}."
+    fi
 }
 
-# Display main menu
+# Main script functionality
+function main_menu() {
+    PS3='Please enter your choice: '
+    options=("Install multiple validator nodes" "Update all validator nodes" "Delete all Docker containers" "Check Docker logs" "Exit")
+    select opt in "${options[@]}"; do
+        case $opt in
+            "Install multiple validator nodes")
+                install_multiple_nodes
+                ;;
+            "Update all validator nodes")
+                update_all_nodes
+                ;;
+            "Delete all Docker containers")
+                delete_docker_container
+                ;;
+            "Check Docker logs")
+                check_docker_logs
+                ;;
+            "Exit")
+                echo "Exiting..."
+                break
+                ;;
+            *) echo "Invalid option $REPLY";;
+        esac
+    done
+}
+
+# Run the main menu
 main_menu
