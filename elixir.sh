@@ -123,7 +123,7 @@ function delete_docker_container() {
 
         # Stop and remove the container
         echo "Attempting to stop container ${container_name}..."
-        docker stop "$container_id"
+        docker kill "$container_id"
         echo "Attempting to remove container ${container_name}..."
         docker rm "$container_id"
 
