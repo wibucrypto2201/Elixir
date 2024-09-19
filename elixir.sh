@@ -125,7 +125,45 @@ function delete_docker_container() {
 
 # Update all created validator nodes
 function update_all_nodes() {
-    install_multiple_nodes
+    if [ ! -f "private_keys.txt" ] || [ ! -f "address.txt" ] || [ ! -f "username.txt" ]; then
+        echo "Required files (private_keys.txt, address.txt, username.txt) not found."
+        exit 1
+    fi
+
+    # Read the files and store the data into arrays
+    mapfile -t addresses < address.txt
+    mapfile -t private_keys < private_keys.txt
+    mapfile -t usernames < username.txt
+
+    # Get number of running validators
+    num_nodes=$(docker ps -a --filter "name=elixir_" --format "{{.ID}}" | wc -l)
+
+    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ]; then
+        echo "Insufficient entries in input files for $num_nodes nodes."
+        exit 1
+    fi
+
+    # Update running Docker containers
+    for i in $(seq 1 $num_nodes); do
+        validator_name=${usernames[$((i-1))]}
+        assigned_port=$((17690 + i))
+
+        # Kill the existing Docker container
+        docker kill elixir_${i}
+
+        # Remove the Docker container
+        docker rm elixir_${i}
+
+        # Pull the latest Docker image
+        docker pull elixirprotocol/validator:v3
+
+        # Restart the container with the latest image
+        docker run -d --env-file validator_${i}.env --name elixir_${i} --platform linux/amd64 -p ${assigned_port}:17690 elixirprotocol/validator:v3
+
+        echo "Validator node ${validator_name} updated and restarted on port ${assigned_port}."
+    done
+
+    echo "Successfully updated $num_nodes validator nodes."
 }
 
 # Main script functionality
@@ -151,7 +189,6 @@ function main_menu() {
         esac
     done
 }
-
 
 # Run the main menu
 main_menu
