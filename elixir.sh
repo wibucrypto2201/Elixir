@@ -101,7 +101,7 @@ EOF
     NUM_VALIDATOR_NODES=$num_nodes
 }
 
-# Delete all Elixir Docker containers and their .env files
+# Delete all Elixir Docker containers and their .env files and images
 function delete_docker_container() {
     NUM_VALIDATOR_NODES=$(ls validator_*.env 2>/dev/null | wc -l)
 
@@ -121,12 +121,14 @@ function delete_docker_container() {
         fi
 
         echo "Attempting to stop container ${container_name}..."
-        stop_output=$(docker stop "$container_id" 2>&1)
-        echo "Stop output: $stop_output"
-
+        docker stop "$container_id"
+        
         echo "Attempting to remove container ${container_name}..."
-        rm_output=$(docker rm "$container_id" 2>&1)
-        echo "Remove output: $rm_output"
+        docker rm "$container_id"
+
+        # Attempt to remove the Docker image
+        echo "Attempting to remove image for ${container_name}..."
+        docker rmi $(docker images --format '{{.Repository}}:{{.Tag}}' | grep "elixirprotocol/validator:v3")
 
         env_file="validator_${i}.env"
         if [ -f "$env_file" ]; then
@@ -157,24 +159,10 @@ function update_all_nodes() {
     done
 }
 
-# View Docker logs for a specific container
-function check_docker_logs() {
-    read -p "Enter the container number (e.g., 1, 2): " container_number
-    container_name="elixir_${container_number}"
-
-    # Check if the container exists
-    if docker ps -a --filter "name=${container_name}" --format '{{.Names}}' | grep -q "${container_name}"; then
-        echo "Fetching logs for container ${container_name}..."
-        docker logs "${container_name}"
-    else
-        echo "No container found with name ${container_name}."
-    fi
-}
-
 # Main script functionality
 function main_menu() {
     PS3='Please enter your choice: '
-    options=("Install multiple validator nodes" "Update all validator nodes" "Delete all Docker containers" "Check Docker logs" "Exit")
+    options=("Install multiple validator nodes" "Update all validator nodes" "Delete all Docker containers" "Exit")
     select opt in "${options[@]}"; do
         case $opt in
             "Install multiple validator nodes")
@@ -185,9 +173,6 @@ function main_menu() {
                 ;;
             "Delete all Docker containers")
                 delete_docker_container
-                ;;
-            "Check Docker logs")
-                check_docker_logs
                 ;;
             "Exit")
                 echo "Exiting..."
