@@ -61,6 +61,12 @@ function install_multiple_nodes() {
         exit 1
     fi
 
+    # Create a Docker bridge network (if not already created)
+    if ! docker network ls | grep -q "elixir_net"; then
+        echo "Creating Docker network elixir_net..."
+        docker network create elixir_net
+    fi
+
     # Read the files and store the data into arrays
     mapfile -t addresses < address.txt
     mapfile -t private_keys < private_keys.txt
@@ -91,8 +97,13 @@ STRATEGY_EXECUTOR_BENEFICIARY=${safe_public_address}
 SIGNER_PRIVATE_KEY=${private_key}
 EOF
 
-        # Run the Docker container with --restart unless-stopped
-        docker run -d --env-file validator_${i}.env --name elixir_${i} --restart unless-stopped elixirprotocol/validator:v3
+        # Run the Docker container with --restart unless-stopped and attach to Docker network
+        docker run -d \
+          --env-file validator_${i}.env \
+          --name elixir_${i} \
+          --network elixir_net \
+          --restart unless-stopped \
+          elixirprotocol/validator:v3
 
         echo "Validator node ${validator_name} started."
     done
@@ -157,8 +168,13 @@ function update_all_nodes() {
         # Pull the latest Docker image
         docker pull elixirprotocol/validator:v3
 
-        # Restart the container with the latest image
-        docker run -d --env-file validator_${i}.env --name elixir_${i} --restart unless-stopped elixirprotocol/validator:v3
+        # Restart the container with the latest image and attach to Docker network
+        docker run -d \
+          --env-file validator_${i}.env \
+          --name elixir_${i} \
+          --network elixir_net \
+          --restart unless-stopped \
+          elixirprotocol/validator:v3
 
         echo "Validator node ${validator_name} updated and restarted."
     done
