@@ -102,6 +102,7 @@ EOF
 }
 
 # Delete all Elixir Docker containers and their .env files and images
+# Delete all Elixir Docker containers, their .env files, and images
 function delete_docker_container() {
     NUM_VALIDATOR_NODES=$(ls validator_*.env 2>/dev/null | wc -l)
 
@@ -120,16 +121,24 @@ function delete_docker_container() {
             continue
         fi
 
+        # Stop and remove the container
         echo "Attempting to stop container ${container_name}..."
         docker stop "$container_id"
-        
         echo "Attempting to remove container ${container_name}..."
         docker rm "$container_id"
 
-        # Attempt to remove the Docker image
-        echo "Attempting to remove image for ${container_name}..."
-        docker rmi $(docker images --format '{{.Repository}}:{{.Tag}}' | grep "elixirprotocol/validator:v3")
+        # Find the image associated with the container
+        image_id=$(docker inspect --format='{{.Image}}' "$container_id")
 
+        # Remove the Docker image
+        if [ ! -z "$image_id" ]; then
+            echo "Attempting to remove image ID $image_id..."
+            docker rmi "$image_id"
+        else
+            echo "No image ID found for container ${container_name}."
+        fi
+
+        # Remove environment file
         env_file="validator_${i}.env"
         if [ -f "$env_file" ]; then
             echo "Removing environment file ${env_file}..."
