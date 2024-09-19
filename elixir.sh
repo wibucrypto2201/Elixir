@@ -7,9 +7,6 @@ if [ "$(id -u)" != "0" ]; then
     exit 1
 fi
 
-# Script save path
-SCRIPT_PATH="$HOME/ElixirV3.sh"
-
 # Check and install Python 3 and dependencies
 function check_and_install_python() {
     if ! command -v python3 &> /dev/null; then
@@ -129,8 +126,7 @@ function update_all_nodes() {
 function main_menu() {
     PS3='Please enter your choice: '
     options=("Install multiple validator nodes" "Update all validator nodes" "Delete all Docker containers" "Exit")
-    select opt in
-    "${options[@]}"; do
+    select opt in "${options[@]}"; do
         case $opt in
             "Install multiple validator nodes")
                 install_multiple_nodes
