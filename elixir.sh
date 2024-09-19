@@ -101,7 +101,6 @@ EOF
     NUM_VALIDATOR_NODES=$num_nodes
 }
 
-# Delete all Elixir Docker containers and their .env files and images
 # Delete all Elixir Docker containers, their .env files, and images
 function delete_docker_container() {
     NUM_VALIDATOR_NODES=$(ls validator_*.env 2>/dev/null | wc -l)
@@ -111,34 +110,13 @@ function delete_docker_container() {
         exit 1
     fi
 
+    # Stop and force remove all containers named elixir_{number}
+    echo "Stopping and removing all Elixir containers..."
+    docker ps -aq --filter "name=elixir_" | xargs -r docker stop
+    docker ps -aq --filter "name=elixir_" | xargs -r docker rm -f
+
+    # Remove environment files
     for i in $(seq 1 $NUM_VALIDATOR_NODES); do
-        container_name="elixir_${i}"
-
-        # Check if the container exists
-        container_id=$(docker ps -a -q --filter "name=${container_name}")
-        if [ -z "$container_id" ]; then
-            echo "No container found with name ${container_name}, skipping."
-            continue
-        fi
-
-        # Stop and remove the container
-        echo "Attempting to stop container ${container_name}..."
-        docker kill "$container_id"
-        echo "Attempting to remove container ${container_name}..."
-        docker rm "$container_id"
-
-        # Find the image associated with the container
-        image_id=$(docker inspect --format='{{.Image}}' "$container_id")
-
-        # Remove the Docker image
-        if [ ! -z "$image_id" ]; then
-            echo "Attempting to remove image ID $image_id..."
-            docker rmi "$image_id"
-        else
-            echo "No image ID found for container ${container_name}."
-        fi
-
-        # Remove environment file
         env_file="validator_${i}.env"
         if [ -f "$env_file" ]; then
             echo "Removing environment file ${env_file}..."
@@ -147,6 +125,11 @@ function delete_docker_container() {
             echo "Environment file ${env_file} not found, skipping."
         fi
     done
+
+    # Attempt to remove the Docker images used by the containers
+    echo "Removing all Elixir Docker images..."
+    docker images --format '{{.Repository}}:{{.Tag}}' | grep 'elixirprotocol/validator:v3' | xargs -r docker rmi -f
+
     echo "Cleanup complete."
 }
 
