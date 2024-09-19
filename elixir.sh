@@ -91,10 +91,10 @@ STRATEGY_EXECUTOR_BENEFICIARY=${safe_public_address}
 SIGNER_PRIVATE_KEY=${private_key}
 EOF
 
-        # Run the Docker container with the fixed port 17690:17690
-        docker run -d --env-file validator_${i}.env --name elixir_${i} --platform linux/amd64 -p 17690:17690 elixirprotocol/validator:v3
+        # Run the Docker container with --restart unless-stopped
+        docker run -d --env-file validator_${i}.env --name elixir_${i} --restart unless-stopped elixirprotocol/validator:v3
 
-        echo "Validator node ${validator_name} started on port 17690."
+        echo "Validator node ${validator_name} started."
     done
 
     echo "Successfully launched $num_nodes validator nodes."
@@ -158,9 +158,9 @@ function update_all_nodes() {
         docker pull elixirprotocol/validator:v3
 
         # Restart the container with the latest image
-        docker run -d --env-file validator_${i}.env --name elixir_${i} --platform linux/amd64 -p 17690:17690 elixirprotocol/validator:v3
+        docker run -d --env-file validator_${i}.env --name elixir_${i} --restart unless-stopped elixirprotocol/validator:v3
 
-        echo "Validator node ${validator_name} updated and restarted on port 17690."
+        echo "Validator node ${validator_name} updated and restarted."
     done
 
     echo "Successfully updated $num_nodes validator nodes."
