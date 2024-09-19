@@ -85,10 +85,10 @@ SIGNER_PRIVATE_KEY=${private_key}
 EOF
 
         if [ $i -eq 1 ]; then
-            docker pull elixirprotocol/validator:v3
+            docker pull elixirprotocol/validator:v3 --platform linux/amd64
         fi
 
-        docker run -it -d --env-file validator_${i}.env --name elixir_${i} elixirprotocol/validator:v3
+        docker run --env-file validator_${i}.env --name elixir_${i} --platform linux/amd64 -p 17690:17690 elixirprotocol/validator:v3
         echo "Validator node ${validator_name} started."
     done
 }
