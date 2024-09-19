@@ -116,18 +116,26 @@ function delete_docker_container() {
         # Check if the container exists
         container_id=$(docker ps -a -q --filter "name=${container_name}")
         if [ -z "$container_id" ]; then
-            echo "No container found for ${container_name}, skipping."
+            echo "No container found with name ${container_name}, skipping."
             continue
         fi
 
         echo "Stopping container ${container_name}..."
-        docker stop "$container_id"
-        docker rm "$container_id"
+        if ! docker stop "$container_id"; then
+            echo "Error stopping container ${container_name}, it might not be running."
+        fi
+
+        echo "Removing container ${container_name}..."
+        if ! docker rm "$container_id"; then
+            echo "Error removing container ${container_name}, it might have already been removed."
+        fi
 
         env_file="validator_${i}.env"
         if [ -f "$env_file" ]; then
             echo "Removing environment file ${env_file}..."
             rm "$env_file"
+        else
+            echo "Environment file ${env_file} not found, skipping."
         fi
     done
     echo "Cleanup complete."
