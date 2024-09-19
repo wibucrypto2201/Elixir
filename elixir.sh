@@ -110,10 +110,17 @@ function delete_docker_container() {
         exit 1
     fi
 
-    # Stop and force remove all containers named elixir_{number}
-    echo "Stopping and removing all Elixir containers..."
-    docker ps -aq --filter "name=elixir_" | xargs -r docker stop
-    docker ps -aq --filter "name=elixir_" | xargs -r docker rm -f
+    # List all containers (including stopped ones) and remove those named elixir_
+    echo "Identifying all Elixir containers..."
+    local containers_to_remove=$(docker ps -a --filter "name=elixir_" --format "{{.ID}}")
+    
+    if [ ! -z "$containers_to_remove" ]; then
+        echo "Stopping and removing all Elixir containers..."
+        echo "$containers_to_remove" | xargs -r docker stop
+        echo "$containers_to_remove" | xargs -r docker rm -f
+    else
+        echo "No Elixir containers found to stop or remove."
+    fi
 
     # Remove environment files
     for i in $(seq 1 $NUM_VALIDATOR_NODES); do
@@ -127,11 +134,9 @@ function delete_docker_container() {
     done
 
     # Attempt to remove the Docker images used by the containers
-    echo "Removing all Elixir Docker images..."
-    docker images --format '{{.Repository}}:{{.Tag}}' | grep 'elixirprotocol/validator:v3' | xargs -r docker rmi -f
+    echo "Removing all related Elixir Docker images..."
+    docker images --format '{{.Repository
 
-    echo "Cleanup complete."
-}
 
 # Update all created validator nodes
 function update_all_nodes() {
