@@ -61,6 +61,7 @@ function install_multiple_nodes() {
         exit 1
     fi
 
+    # Read the files and store the data into arrays
     mapfile -t addresses < address.txt
     mapfile -t private_keys < private_keys.txt
     mapfile -t usernames < username.txt
@@ -77,6 +78,7 @@ function install_multiple_nodes() {
         safe_public_address=${addresses[$((i-1))]}
         private_key=${private_keys[$((i-1))]}
 
+        # Ensure file creation without overwriting in case of multiple runs
         cat <<EOF > validator_${i}.env
 ENV=testnet-3
 STRATEGY_EXECUTOR_DISPLAY_NAME=${validator_name}
@@ -84,12 +86,14 @@ STRATEGY_EXECUTOR_BENEFICIARY=${safe_public_address}
 SIGNER_PRIVATE_KEY=${private_key}
 EOF
 
+        # Pull the Docker image only once (first iteration)
         if [ $i -eq 1 ]; then
             docker pull elixirprotocol/validator:v3 --platform linux/amd64
         fi
 
-        docker run --env-file validator_${i}.env --name elixir_${i} --platform linux/amd64 -p 17690:17690 elixirprotocol/validator:v3
-        echo "Validator node ${validator_name} started."
+        # Run the Docker container for each node
+        docker run --env-file validator_${i}.env --name elixir_${i} --platform linux/amd64 -d -p $((17690 + i - 1)):17690 elixirprotocol/validator:v3
+        echo "Validator node ${validator_name} started on port $((17690 + i - 1))."
     done
 }
 
