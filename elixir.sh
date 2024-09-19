@@ -120,15 +120,13 @@ function delete_docker_container() {
             continue
         fi
 
-        echo "Stopping container ${container_name}..."
-        if ! docker stop "$container_id"; then
-            echo "Error stopping container ${container_name}, it might not be running."
-        fi
+        echo "Attempting to stop container ${container_name}..."
+        stop_output=$(docker stop "$container_id" 2>&1)
+        echo "Stop output: $stop_output"
 
-        echo "Removing container ${container_name}..."
-        if ! docker rm "$container_id"; then
-            echo "Error removing container ${container_name}, it might have already been removed."
-        fi
+        echo "Attempting to remove container ${container_name}..."
+        rm_output=$(docker rm "$container_id" 2>&1)
+        echo "Remove output: $rm_output"
 
         env_file="validator_${i}.env"
         if [ -f "$env_file" ]; then
