@@ -73,6 +73,10 @@ function install_multiple_nodes() {
         exit 1
     fi
 
+    # Pull the latest Docker image before starting any containers
+    echo "Pulling the latest Docker image for elixirprotocol/validator:v3..."
+    docker pull elixirprotocol/validator:v3
+
     # Prepare to run Docker containers
     for i in $(seq 1 $num_nodes); do
         validator_name=${usernames[$((i-1))]}
@@ -87,13 +91,10 @@ STRATEGY_EXECUTOR_BENEFICIARY=${safe_public_address}
 SIGNER_PRIVATE_KEY=${private_key}
 EOF
 
-        # Create a unique port for each Docker container
-        assigned_port=$((17690 + i))
+        # Run the Docker container with the fixed port 17690:17690
+        docker run -d --env-file validator_${i}.env --name elixir_${i} --platform linux/amd64 -p 17690:17690 elixirprotocol/validator:v3
 
-        # Run the Docker container in the background
-        docker run -d --env-file validator_${i}.env --name elixir_${i} --platform linux/amd64 -p ${assigned_port}:17690 elixirprotocol/validator:v3
-
-        echo "Validator node ${validator_name} started on port ${assigned_port}."
+        echo "Validator node ${validator_name} started on port 17690."
     done
 
     echo "Successfully launched $num_nodes validator nodes."
@@ -146,7 +147,6 @@ function update_all_nodes() {
     # Update running Docker containers
     for i in $(seq 1 $num_nodes); do
         validator_name=${usernames[$((i-1))]}
-        assigned_port=$((17690 + i))
 
         # Kill the existing Docker container
         docker kill elixir_${i}
@@ -158,9 +158,9 @@ function update_all_nodes() {
         docker pull elixirprotocol/validator:v3
 
         # Restart the container with the latest image
-        docker run -d --env-file validator_${i}.env --name elixir_${i} --platform linux/amd64 -p ${assigned_port}:17690 elixirprotocol/validator:v3
+        docker run -d --env-file validator_${i}.env --name elixir_${i} --platform linux/amd64 -p 17690:17690 elixirprotocol/validator:v3
 
-        echo "Validator node ${validator_name} updated and restarted on port ${assigned_port}."
+        echo "Validator node ${validator_name} updated and restarted on port 17690."
     done
 
     echo "Successfully updated $num_nodes validator nodes."
