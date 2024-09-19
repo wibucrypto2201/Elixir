@@ -10,9 +10,6 @@ fi
 # Script save path
 SCRIPT_PATH="$HOME/ElixirV3.sh"
 
-# Variable to track how many validator nodes were created
-NUM_VALIDATOR_NODES=0
-
 # Check and install Python 3 and dependencies
 function check_and_install_python() {
     if ! command -v python3 &> /dev/null; then
@@ -97,70 +94,43 @@ EOF
         docker run -it -d --env-file validator_${i}.env --name elixir_${i} elixirprotocol/validator:v3
         echo "Validator node ${validator_name} started."
     done
-
-    NUM_VALIDATOR_NODES=$num_nodes
 }
 
 # Delete all Elixir Docker containers, their .env files, and images
 function delete_docker_container() {
-    NUM_VALIDATOR_NODES=$(ls validator_*.env 2>/dev/null | wc -l)
+    # Fetch all containers with names matching 'elixir_'
+    local containers_to_remove=$(docker ps -a --filter "name=elixir_" --format "{{.ID}}")
 
-    if [ $NUM_VALIDATOR_NODES -eq 0 ]; then
+    if [ -z "$containers_to_remove" ]; then
         echo "No validator nodes to delete."
         exit 1
-    fi
-
-    # List all containers (including stopped ones) and remove those named elixir_
-    echo "Identifying all Elixir containers..."
-    local containers_to_remove=$(docker ps -a --filter "name=elixir_" --format "{{.ID}}")
-    
-    if [ ! -z "$containers_to_remove" ]; then
-        echo "Stopping and removing all Elixir containers..."
-        echo "$containers_to_remove" | xargs -r docker stop
-        echo "$containers_to_remove" | xargs -r docker rm -f
     else
-        echo "No Elixir containers found to stop or remove."
+        echo "Found validator nodes to delete."
     fi
 
-    # Remove environment files
-    for i in $(seq 1 $NUM_VALIDATOR_NODES); do
-        env_file="validator_${i}.env"
-        if [ -f "$env_file" ]; then
-            echo "Removing environment file ${env_file}..."
-            rm "$env_file"
-        else
-            echo "Environment file ${env_file} not found, skipping."
-        fi
-    done
+    # Stop and remove containers
+    echo "Stopping and removing all Elixir containers..."
+    echo "$containers_to_remove" | xargs -r docker stop
+    echo "$containers_to_remove" | xargs -r docker rm -f
 
-    # Attempt to remove the Docker images used by the containers
+    # Remove all related Docker images
     echo "Removing all related Elixir Docker images..."
-    docker images --format '{{.Repository
+    docker images --format '{{.Repository}}:{{.Tag}}' | grep 'elixirprotocol/validator:v3' | xargs -r docker rmi -f
 
+    echo "Cleanup complete."
+}
 
 # Update all created validator nodes
 function update_all_nodes() {
-    NUM_VALIDATOR_NODES=$(ls validator_*.env 2>/dev/null | wc -l)
-
-    if [ $NUM_VALIDATOR_NODES -eq 0 ]; then
-        echo "No validator nodes to update."
-        exit 1
-    fi
-
-    for i in $(seq 1 $NUM_VALIDATOR_NODES); do
-        docker kill elixir_${i}
-        docker rm elixir_${i}
-        docker pull elixirprotocol/validator:v3
-        docker run -it -d --env-file validator_${i}.env --name elixir_${i} elixirprotocol/validator:v3
-        echo "Validator node $i updated and restarted."
-    done
+    install_multiple_nodes
 }
 
 # Main script functionality
 function main_menu() {
     PS3='Please enter your choice: '
     options=("Install multiple validator nodes" "Update all validator nodes" "Delete all Docker containers" "Exit")
-    select opt in "${options[@]}"; do
+    select opt in
+    "${options[@]}"; do
         case $opt in
             "Install multiple validator nodes")
                 install_multiple_nodes
