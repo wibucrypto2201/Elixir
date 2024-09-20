@@ -51,13 +51,13 @@ function check_and_install_docker() {
     fi
 }
 
-# Install multiple validator nodes
+# Install multiple validator nodes with random proxies
 function install_multiple_nodes() {
     check_and_install_python
     check_and_install_docker
 
-    if [ ! -f "private_keys.txt" ] || [ ! -f "address.txt" ] || [ ! -f "username.txt" ]; then
-        echo "Required files (private_keys.txt, address.txt, username.txt) not found."
+    if [ ! -f "private_keys.txt" ] || [ ! -f "address.txt" ] || [ ! -f "username.txt" ] || [ ! -f "proxy.txt" ]; then
+        echo "Required files (private_keys.txt, address.txt, username.txt, proxy.txt) not found."
         exit 1
     fi
 
@@ -71,10 +71,11 @@ function install_multiple_nodes() {
     mapfile -t addresses < address.txt
     mapfile -t private_keys < private_keys.txt
     mapfile -t usernames < username.txt
+    mapfile -t proxies < proxy.txt # Read proxies
 
     read -p "How many validator nodes would you like to create? " num_nodes
 
-    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ]; then
+    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ] || [ ${#proxies[@]} -lt $num_nodes ]; then
         echo "Insufficient entries in input files for $num_nodes nodes."
         exit 1
     fi
@@ -88,6 +89,15 @@ function install_multiple_nodes() {
         validator_name=${usernames[$((i-1))]}
         safe_public_address=${addresses[$((i-1))]}
         private_key=${private_keys[$((i-1))]}
+        
+        # Choose a random proxy from the list
+        random_proxy=${proxies[$RANDOM % ${#proxies[@]}]}
+
+        # Split the proxy into user, pass, IP, and port
+        proxy_user=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 1)
+        proxy_pass=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 2)
+        proxy_ip=$(echo $random_proxy | cut -d "@" -f 2 | cut -d ":" -f 1)
+        proxy_port=$(echo $random_proxy | cut -d ":" -f 4)
 
         # Create an .env file for each validator node
         cat <<EOF > validator_${i}.env
@@ -95,6 +105,10 @@ ENV=testnet-3
 STRATEGY_EXECUTOR_DISPLAY_NAME=${validator_name}
 STRATEGY_EXECUTOR_BENEFICIARY=${safe_public_address}
 SIGNER_PRIVATE_KEY=${private_key}
+PROXY_USER=${proxy_user}
+PROXY_PASS=${proxy_pass}
+PROXY_IP=${proxy_ip}
+PROXY_PORT=${proxy_port}
 EOF
 
         # Run the Docker container with --restart unless-stopped and attach to Docker network
@@ -103,12 +117,14 @@ EOF
           --name elixir_${i} \
           --network elixir_net \
           --restart unless-stopped \
+          -e http_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
+          -e https_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
           elixirprotocol/validator:v3
 
-        echo "Validator node ${validator_name} started."
+        echo "Validator node ${validator_name} started with proxy ${random_proxy}."
     done
 
-    echo "Successfully launched $num_nodes validator nodes."
+    echo "Successfully launched $num_nodes validator nodes with random proxies."
 }
 
 # Delete all Elixir Docker containers, their .env files, and images
@@ -137,8 +153,8 @@ function delete_docker_container() {
 
 # Update all created validator nodes
 function update_all_nodes() {
-    if [ ! -f "private_keys.txt" ] || [ ! -f "address.txt" ] || [ ! -f "username.txt" ]; then
-        echo "Required files (private_keys.txt, address.txt, username.txt) not found."
+    if [ ! -f "private_keys.txt" ] || [ ! -f "address.txt" ] || [ ! -f "username.txt" ] || [ ! -f "proxy.txt" ]; then
+        echo "Required files (private_keys.txt, address.txt, username.txt, proxy.txt) not found."
         exit 1
     fi
 
@@ -146,11 +162,12 @@ function update_all_nodes() {
     mapfile -t addresses < address.txt
     mapfile -t private_keys < private_keys.txt
     mapfile -t usernames < username.txt
+    mapfile -t proxies < proxy.txt # Read proxies
 
     # Get number of running validators
     num_nodes=$(docker ps -a --filter "name=elixir_" --format "{{.ID}}" | wc -l)
 
-    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ]; then
+    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ] || [ ${#proxies[@]} -lt $num_nodes ]; then
         echo "Insufficient entries in input files for $num_nodes nodes."
         exit 1
     fi
@@ -165,8 +182,29 @@ function update_all_nodes() {
         # Remove the Docker container
         docker rm elixir_${i}
 
+        # Choose a random proxy from the list
+        random_proxy=${proxies[$RANDOM % ${#proxies[@]}]}
+
+        # Split the proxy into user, pass, IP, and port
+        proxy_user=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 1)
+        proxy_pass=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 2)
+        proxy_ip=$(echo $random_proxy | cut -d "@" -f 2 | cut -d ":" -f 1)
+        proxy_port=$(echo $random_proxy | cut -d ":" -f 4)
+
         # Pull the latest Docker image
         docker pull elixirprotocol/validator:v3
+
+        # Create an .env file for each validator node
+        cat <<EOF > validator_${i}.env
+ENV=testnet-3
+STRATEGY_EXECUTOR_DISPLAY_NAME=${validator_name}
+STRATEGY_EXECUTOR_BENEFICIARY=${safe_public_address}
+SIGNER_PRIVATE_KEY=${private_key}
+PROXY_USER=${proxy_user}
+PROXY_PASS=${proxy_pass}
+PROXY_IP=${proxy_ip}
+PROXY_PORT=${proxy_port}
+EOF
 
         # Restart the container with the latest image and attach to Docker network
         docker run -d \
@@ -174,12 +212,14 @@ function update_all_nodes() {
           --name elixir_${i} \
           --network elixir_net \
           --restart unless-stopped \
+          -e http_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
+          -e https_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
           elixirprotocol/validator:v3
 
-        echo "Validator node ${validator_name} updated and restarted."
+        echo "Validator node ${validator_name} updated and restarted with proxy ${random_proxy}."
     done
 
-    echo "Successfully updated $num_nodes validator nodes."
+    echo "Successfully updated $num_nodes validator nodes with random proxies."
 }
 
 # Main script functionality
