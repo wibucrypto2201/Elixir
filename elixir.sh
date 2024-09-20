@@ -51,7 +51,7 @@ function check_and_install_docker() {
     fi
 }
 
-# Install multiple validator nodes with random proxies
+# Install multiple validator nodes with rotating proxies
 function install_multiple_nodes() {
     check_and_install_python
     check_and_install_docker
@@ -75,7 +75,7 @@ function install_multiple_nodes() {
 
     read -p "How many validator nodes would you like to create? " num_nodes
 
-    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ] || [ ${#proxies[@]} -lt $num_nodes ]; then
+    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ]; then
         echo "Insufficient entries in input files for $num_nodes nodes."
         exit 1
     fi
@@ -90,8 +90,9 @@ function install_multiple_nodes() {
         safe_public_address=${addresses[$((i-1))]}
         private_key=${private_keys[$((i-1))]}
         
-        # Choose a random proxy from the list
-        random_proxy=${proxies[$RANDOM % ${#proxies[@]}]}
+        # Rotate proxy: if all proxies are used, start again from the beginning
+        proxy_index=$(( (i-1) % ${#proxies[@]} ))
+        random_proxy=${proxies[$proxy_index]}
 
         # Split the proxy into user, pass, IP, and port
         proxy_user=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 1)
@@ -124,7 +125,7 @@ EOF
         echo "Validator node ${validator_name} started with proxy ${random_proxy}."
     done
 
-    echo "Successfully launched $num_nodes validator nodes with random proxies."
+    echo "Successfully launched $num_nodes validator nodes with rotating proxies."
 }
 
 # Delete all Elixir Docker containers, their .env files, and images
@@ -144,7 +145,7 @@ function delete_docker_container() {
     echo "$containers_to_remove" | xargs -r docker stop
     echo "$containers_to_remove" | xargs -r docker rm -f
 
-    # Remove all related Docker images
+    # Remove all related Elixir Docker images
     echo "Removing all related Elixir Docker images..."
     docker images --format '{{.Repository}}:{{.Tag}}' | grep 'elixirprotocol/validator:v3' | xargs -r docker rmi -f
 
@@ -167,7 +168,7 @@ function update_all_nodes() {
     # Get number of running validators
     num_nodes=$(docker ps -a --filter "name=elixir_" --format "{{.ID}}" | wc -l)
 
-    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ] || [ ${#proxies[@]} -lt $num_nodes ]; then
+    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ]; then
         echo "Insufficient entries in input files for $num_nodes nodes."
         exit 1
     fi
@@ -182,8 +183,9 @@ function update_all_nodes() {
         # Remove the Docker container
         docker rm elixir_${i}
 
-        # Choose a random proxy from the list
-        random_proxy=${proxies[$RANDOM % ${#proxies[@]}]}
+        # Rotate proxy: if all proxies are used, start again from the beginning
+        proxy_index=$(( (i-1) % ${#proxies[@]} ))
+        random_proxy=${proxies[$proxy_index]}
 
         # Split the proxy into user, pass, IP, and port
         proxy_user=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 1)
@@ -219,7 +221,7 @@ EOF
         echo "Validator node ${validator_name} updated and restarted with proxy ${random_proxy}."
     done
 
-    echo "Successfully updated $num_nodes validator nodes with random proxies."
+    echo "Successfully updated $num_nodes validator nodes with rotating proxies."
 }
 
 # Main script functionality
