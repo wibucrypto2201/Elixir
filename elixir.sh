@@ -25,14 +25,6 @@ function check_and_install_python() {
     else
         echo "pip is already installed."
     fi
-
-    if ! python3 -c "import requests" &> /dev/null; then
-        echo "Python 'requests' module not detected, installing..."
-        pip3 install requests
-        echo "'requests' module installed."
-    else
-        echo "'requests' module is already installed."
-    fi
 }
 
 # Check and install Docker
@@ -104,7 +96,7 @@ function install_multiple_nodes() {
         validator_name=${usernames[$((i-1))]}
         safe_public_address=${addresses[$((i-1))]}
         private_key=${private_keys[$((i-1))]}
-        
+
         # Rotate proxy: if all proxies are used, start again from the beginning
         proxy_index=$(( (i-1) % ${#proxies[@]} ))
         random_proxy=${proxies[$proxy_index]}
@@ -115,7 +107,7 @@ function install_multiple_nodes() {
             proxy_user=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 1)
             proxy_pass=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 2)
             proxy_ip=$(echo $random_proxy | cut -d "@" -f 2 | cut -d ":" -f 1)
-            proxy_port=$(echo $random_proxy | cut -d ":" -f 4)
+            proxy_port=$(echo $random_proxy | cut -d ":" -f 3)
 
             # Create an .env file for each validator node
             cat <<EOF > validator_${i}.env
@@ -127,6 +119,7 @@ PROXY_USER=${proxy_user}
 PROXY_PASS=${proxy_pass}
 PROXY_IP=${proxy_ip}
 PROXY_PORT=${proxy_port}
+STRATEGY_EXECUTOR_IP_ADDRESS=${proxy_ip}
 EOF
 
             # Run the Docker container with --restart unless-stopped and attach to Docker network
@@ -171,6 +164,9 @@ function delete_docker_container() {
 
     echo "Cleanup complete."
 }
+
+# Update all
+
 
 # Update all created validator nodes
 function update_all_nodes() {
