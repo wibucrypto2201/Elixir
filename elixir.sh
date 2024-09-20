@@ -51,7 +51,22 @@ function check_and_install_docker() {
     fi
 }
 
-# Install multiple validator nodes with rotating proxies
+# Function to check if the proxy is working
+function check_proxy() {
+    local proxy=$1
+    local target_url="http://api.testnet-3.elixir.xyz"
+    echo "Testing proxy: $proxy"
+    # Use curl to check if the proxy can connect
+    if curl -x "http://${proxy}" --connect-timeout 10 -s $target_url > /dev/null; then
+        echo "Proxy $proxy is working."
+        return 0
+    else
+        echo "Proxy $proxy failed. Skipping..."
+        return 1
+    fi
+}
+
+# Install multiple validator nodes with rotating proxies and proxy check
 function install_multiple_nodes() {
     check_and_install_python
     check_and_install_docker
@@ -94,14 +109,16 @@ function install_multiple_nodes() {
         proxy_index=$(( (i-1) % ${#proxies[@]} ))
         random_proxy=${proxies[$proxy_index]}
 
-        # Split the proxy into user, pass, IP, and port
-        proxy_user=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 1)
-        proxy_pass=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 2)
-        proxy_ip=$(echo $random_proxy | cut -d "@" -f 2 | cut -d ":" -f 1)
-        proxy_port=$(echo $random_proxy | cut -d ":" -f 4)
+        # Check if the proxy works
+        if check_proxy $random_proxy; then
+            # Split the proxy into user, pass, IP, and port
+            proxy_user=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 1)
+            proxy_pass=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 2)
+            proxy_ip=$(echo $random_proxy | cut -d "@" -f 2 | cut -d ":" -f 1)
+            proxy_port=$(echo $random_proxy | cut -d ":" -f 4)
 
-        # Create an .env file for each validator node
-        cat <<EOF > validator_${i}.env
+            # Create an .env file for each validator node
+            cat <<EOF > validator_${i}.env
 ENV=testnet-3
 STRATEGY_EXECUTOR_DISPLAY_NAME=${validator_name}
 STRATEGY_EXECUTOR_BENEFICIARY=${safe_public_address}
@@ -112,17 +129,20 @@ PROXY_IP=${proxy_ip}
 PROXY_PORT=${proxy_port}
 EOF
 
-        # Run the Docker container with --restart unless-stopped and attach to Docker network
-        docker run -d \
-          --env-file validator_${i}.env \
-          --name elixir_${i} \
-          --network elixir_net \
-          --restart unless-stopped \
-          -e http_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
-          -e https_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
-          elixirprotocol/validator:v3
+            # Run the Docker container with --restart unless-stopped and attach to Docker network
+            docker run -d \
+              --env-file validator_${i}.env \
+              --name elixir_${i} \
+              --network elixir_net \
+              --restart unless-stopped \
+              -e http_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
+              -e https_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
+              elixirprotocol/validator:v3
 
-        echo "Validator node ${validator_name} started with proxy ${random_proxy}."
+            echo "Validator node ${validator_name} started with proxy ${random_proxy}."
+        else
+            echo "Skipping validator node ${validator_name} due to failed proxy."
+        fi
     done
 
     echo "Successfully launched $num_nodes validator nodes with rotating proxies."
@@ -187,17 +207,19 @@ function update_all_nodes() {
         proxy_index=$(( (i-1) % ${#proxies[@]} ))
         random_proxy=${proxies[$proxy_index]}
 
-        # Split the proxy into user, pass, IP, and port
-        proxy_user=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 1)
-        proxy_pass=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 2)
-        proxy_ip=$(echo $random_proxy | cut -d "@" -f 2 | cut -d ":" -f 1)
-        proxy_port=$(echo $random_proxy | cut -d ":" -f 4)
+        # Check if the proxy works
+        if check_proxy $random_proxy; then
+            # Split the proxy into user, pass, IP, and port
+            proxy_user=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 1)
+            proxy_pass=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 2)
+            proxy_ip=$(echo $random_proxy | cut -d "@" -f 2 | cut -d ":" -f 1)
+            proxy_port=$(echo $random_proxy | cut -d ":" -f 4)
 
-        # Pull the latest Docker image
-        docker pull elixirprotocol/validator:v3
+            # Pull the latest Docker image
+            docker pull elixirprotocol/validator:v3
 
-        # Create an .env file for each validator node
-        cat <<EOF > validator_${i}.env
+            # Create an .env file for each validator node
+            cat <<EOF > validator_${i}.env
 ENV=testnet-3
 STRATEGY_EXECUTOR_DISPLAY_NAME=${validator_name}
 STRATEGY_EXECUTOR_BENEFICIARY=${safe_public_address}
@@ -208,17 +230,20 @@ PROXY_IP=${proxy_ip}
 PROXY_PORT=${proxy_port}
 EOF
 
-        # Restart the container with the latest image and attach to Docker network
-        docker run -d \
-          --env-file validator_${i}.env \
-          --name elixir_${i} \
-          --network elixir_net \
-          --restart unless-stopped \
-          -e http_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
-          -e https_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
-          elixirprotocol/validator:v3
+            # Restart the container with the latest image and attach to Docker network
+            docker run -d \
+              --env-file validator_${i}.env \
+              --name elixir_${i} \
+              --network elixir_net \
+              --restart unless-stopped \
+              -e http_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
+              -e https_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
+              elixirprotocol/validator:v3
 
-        echo "Validator node ${validator_name} updated and restarted with proxy ${random_proxy}."
+            echo "Validator node ${validator_name} updated and restarted with proxy ${random_proxy}."
+        else
+            echo "Skipping validator node ${validator_name} due to failed proxy."
+        fi
     done
 
     echo "Successfully updated $num_nodes validator nodes with rotating proxies."
