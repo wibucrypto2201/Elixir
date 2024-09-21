@@ -161,7 +161,7 @@ function delete_docker_container() {
     # Remove all related Elixir Docker images
     echo "Removing all related Elixir Docker images..."
     docker images --format '{{.Repository}}:{{.Tag}}' | grep 'elixirprotocol/validator:v3' | xargs -r docker rmi -f
-
+    rm -rf validator_*.env
     echo "Cleanup complete."
 }
 
