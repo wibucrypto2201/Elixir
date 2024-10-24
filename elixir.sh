@@ -47,7 +47,7 @@ function check_and_install_docker() {
 # Function to check if the proxy is working
 function check_proxy() {
     local proxy=$1
-    local target_url="http://api.testnet-3.elixir.xyz"
+    local target_url="https://api.testnet-3.elixir.xyz/"
     
     echo "Testing proxy: $proxy"
     
