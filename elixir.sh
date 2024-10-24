@@ -44,19 +44,35 @@ function check_and_install_docker() {
 }
 
 # Function to check if the proxy is working
+# Function to check if the proxy is working
 function check_proxy() {
     local proxy=$1
     local target_url="http://api.testnet-3.elixir.xyz"
+    
     echo "Testing proxy: $proxy"
-    # Use curl to check if the proxy can connect
-    if curl -x "http://${proxy}" --connect-timeout 10 -s $target_url > /dev/null; then
-        echo "Proxy $proxy is working."
-        return 0
-    else
-        echo "Proxy $proxy failed. Skipping..."
-        return 1
-    fi
+    
+    # Set a retry count and timeout for the proxy check
+    local retry_count=3
+    local retry_delay=5
+    local connect_timeout=5
+    
+    for attempt in $(seq 1 $retry_count); do
+        # Use curl to check if the proxy can connect (with timeout and retries)
+        curl -x "http://${proxy}" --connect-timeout $connect_timeout -s $target_url > /dev/null
+        
+        if [ $? -eq 0 ]; then
+            echo "Proxy $proxy is working."
+            return 0
+        else
+            echo "Proxy $proxy failed on attempt $attempt of $retry_count."
+            sleep $retry_delay
+        fi
+    done
+    
+    echo "Proxy $proxy failed after $retry_count attempts. Skipping..."
+    return 1
 }
+
 
 # Install multiple validator nodes with rotating proxies and proxy check
 function install_multiple_nodes() {
