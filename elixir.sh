@@ -73,7 +73,7 @@ function install_multiple_nodes() {
     fi
 
     # Pull the latest Docker image before starting any containers
-    echo "Pulling the latest Docker image for elixirprotocol/validator:v3..."
+    echo "Pulling the latest Docker image for elixirprotocol/validator:testnet..."
     docker pull elixirprotocol/validator:testnet
 
     # Prepare to run Docker containers
@@ -110,7 +110,7 @@ EOF
           --restart unless-stopped \
           -e http_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
           -e https_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
-          elixirprotocol/validator:v3
+          elixirprotocol/validator:testnet
 
         echo "Validator node ${validator_name} started with proxy ${random_proxy}."
     done
@@ -137,7 +137,7 @@ function delete_docker_container() {
 
     # Remove all related Elixir Docker images
     echo "Removing all related Elixir Docker images..."
-    docker images --format '{{.Repository}}:{{.Tag}}' | grep 'elixirprotocol/validator:v3' | xargs -r docker rmi -f
+    docker images --format '{{.Repository}}:{{.Tag}}' | grep 'elixirprotocol/validator:testnet' | xargs -r docker rmi -f
     rm -rf validator_*.env
     echo "Cleanup complete."
 }
