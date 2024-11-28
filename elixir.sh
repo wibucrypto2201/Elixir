@@ -74,7 +74,7 @@ function install_multiple_nodes() {
 
     # Pull the latest Docker image before starting any containers
     echo "Pulling the latest Docker image for elixirprotocol/validator:v3..."
-    docker pull elixirprotocol/validator:v3
+    docker pull elixirprotocol/validator:testnet
 
     # Prepare to run Docker containers
     for i in $(seq 1 $num_nodes); do
@@ -206,7 +206,7 @@ EOF
           --restart unless-stopped \
           -e http_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
           -e https_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
-          elixirprotocol/validator:v3
+          elixirprotocol/validator:testnet
 
         echo "Validator node ${validator_name} updated and restarted with proxy ${random_proxy}."
     done
