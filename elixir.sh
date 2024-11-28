@@ -184,7 +184,7 @@ function update_all_nodes() {
         proxy_port=$(echo $random_proxy | cut -d ":" -f 4)
 
         # Pull the latest Docker image
-        docker pull elixirprotocol/validator:v3
+        docker pull elixirprotocol/validator:testnet
 
         # Create an .env file for each validator node
         cat <<EOF > validator_${i}.env
