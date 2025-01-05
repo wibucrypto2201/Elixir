@@ -81,7 +81,10 @@ function install_multiple_nodes() {
         validator_name=${usernames[$((i-1))]}
         safe_public_address=${addresses[$((i-1))]}
         private_key=${private_keys[$((i-1))]}
-        random_proxy=${proxies[$((i-1))]}
+
+        # Rotate proxy: if all proxies are used, start again from the beginning
+        proxy_index=$(( (i-1) % ${#proxies[@]} ))
+        random_proxy=${proxies[$proxy_index]}
 
         # Split the proxy into user, pass, IP, and port
         proxy_user=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 1)
@@ -142,89 +145,14 @@ function delete_docker_container() {
     echo "Cleanup complete."
 }
 
-# Update all created validator nodes
-function update_all_nodes() {
-    if [ ! -f "private_keys.txt" ] || [ ! -f "address.txt" ] || [ ! -f "username.txt" ] || [ ! -f "proxy.txt" ]; then
-        echo "Required files (private_keys.txt, address.txt, username.txt, proxy.txt) not found."
-        exit 1
-    fi
-
-    # Read the files and store the data into arrays
-    mapfile -t addresses < address.txt
-    mapfile -t private_keys < private_keys.txt
-    mapfile -t usernames < username.txt
-    mapfile -t proxies < proxy.txt # Read proxies
-
-    # Get number of running validators
-    num_nodes=$(docker ps -a --filter "name=elixir_" --format "{{.ID}}" | wc -l)
-
-    if [ ${#addresses[@]} -lt $num_nodes ] || [ ${#private_keys[@]} -lt $num_nodes ] || [ ${#usernames[@]} -lt $num_nodes ]; then
-        echo "Insufficient entries in input files for $num_nodes nodes."
-        exit 1
-    fi
-
-    # Update running Docker containers
-    for i in $(seq 1 $num_nodes); do
-        validator_name=${usernames[$((i-1))]}
-
-        # Kill the existing Docker container
-        docker kill elixir_${i}
-
-        # Remove the Docker container
-        docker rm elixir_${i}
-
-        # Rotate proxy: if all proxies are used, start again from the beginning
-        proxy_index=$(( (i-1) % ${#proxies[@]} ))
-        random_proxy=${proxies[$proxy_index]}
-
-        # Split the proxy into user, pass, IP, and port
-        proxy_user=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 1)
-        proxy_pass=$(echo $random_proxy | cut -d "@" -f 1 | cut -d ":" -f 2)
-        proxy_ip=$(echo $random_proxy | cut -d "@" -f 2 | cut -d ":" -f 1)
-        proxy_port=$(echo $random_proxy | cut -d ":" -f 4)
-
-        # Pull the latest Docker image
-        docker pull elixirprotocol/validator:testnet
-
-        # Create an .env file for each validator node
-        cat <<EOF > validator_${i}.env
-ENV=testnet-3
-STRATEGY_EXECUTOR_DISPLAY_NAME=${validator_name}
-STRATEGY_EXECUTOR_BENEFICIARY=${safe_public_address}
-SIGNER_PRIVATE_KEY=${private_key}
-PROXY_USER=${proxy_user}
-PROXY_PASS=${proxy_pass}
-PROXY_IP=${proxy_ip}
-PROXY_PORT=${proxy_port}
-EOF
-
-        # Restart the container with the latest image and attach to Docker network
-        docker run -d \
-          --env-file validator_${i}.env \
-          --name elixir_${i} \
-          --network elixir_net \
-          --restart unless-stopped \
-          -e http_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
-          -e https_proxy="http://${proxy_user}:${proxy_pass}@${proxy_ip}:${proxy_port}" \
-          elixirprotocol/validator:testnet
-
-        echo "Validator node ${validator_name} updated and restarted with proxy ${random_proxy}."
-    done
-
-    echo "Successfully updated $num_nodes validator nodes with rotating proxies."
-}
-
 # Main script functionality
 function main_menu() {
     PS3='Please enter your choice: '
-    options=("Install multiple validator nodes" "Update all validator nodes" "Delete all Docker containers" "Exit")
+    options=("Install multiple validator nodes" "Delete all Docker containers" "Exit")
     select opt in "${options[@]}"; do
         case $opt in
             "Install multiple validator nodes")
                 install_multiple_nodes
-                ;;
-            "Update all validator nodes")
-                update_all_nodes
                 ;;
             "Delete all Docker containers")
                 delete_docker_container
