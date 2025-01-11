@@ -41,6 +41,12 @@ function load_data() {
     fi
 }
 
+# Extract IP from proxy
+function extract_ip_from_proxy() {
+    local proxy=$1
+    echo "$proxy" | awk -F'@' '{print $2}' | cut -d':' -f1
+}
+
 # Run multiple Docker containers
 function run_multiple_containers() {
     load_data
@@ -54,19 +60,20 @@ function run_multiple_containers() {
         username=${usernames[$index]}
         private_key=${private_keys[$index]}
         address=${addresses[$index]}
-        proxy=${proxies[$proxy_index]}
+        full_proxy=${proxies[$proxy_index]}  # Full proxy with user:pass@ip:port
+        proxy_ip=$(extract_ip_from_proxy "$full_proxy")  # Extract IP from proxy
 
         # Save environment variables to a unique validator.env file
         env_file="validator_$i.env"
         cat <<EOF > $env_file
-ENV=prod
-STRATEGY_EXECUTOR_IP_ADDRESS=${proxy}
+ENV=testnet-3
+STRATEGY_EXECUTOR_IP_ADDRESS=${proxy_ip}
 STRATEGY_EXECUTOR_DISPLAY_NAME=${username}
 STRATEGY_EXECUTOR_BENEFICIARY=${address}
 SIGNER_PRIVATE_KEY=${private_key}
 EOF
 
-        echo "Starting Docker container for validator $i with username: $username, address: $address, proxy: $proxy..."
+        echo "Starting Docker container for validator $i with username: $username, address: $address, proxy IP: $proxy_ip..."
 
         # Run the Docker container
         docker run -d \
