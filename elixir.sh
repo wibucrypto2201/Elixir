@@ -85,14 +85,18 @@ EOF
     done
 }
 
-# Delete all Docker containers created by this script
+# Delete all Docker containers created by this script and their env files
 function delete_all_containers() {
     echo "Stopping and deleting all Elixir Docker containers..."
     for container in $(docker ps -a --filter "name=elixir_" --format "{{.ID}}"); do
         docker stop "$container"
         docker rm "$container"
     done
-    echo "All Elixir Docker containers have been deleted."
+
+    echo "Deleting all validator_*.env files..."
+    rm -f validator_*.env  # Xóa tất cả các file .env được tạo ra
+
+    echo "All Elixir Docker containers and environment files have been deleted."
 }
 
 # Main menu
